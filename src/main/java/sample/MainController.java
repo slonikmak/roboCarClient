@@ -1,5 +1,6 @@
 package sample;
 
+
 import com.oceanos.ros.core.connections.UDPClient;
 import javafx.application.Platform;
 
@@ -7,6 +8,7 @@ import javafx.beans.property.ObjectProperty;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.embed.swing.SwingFXUtils;
 import javafx.event.ActionEvent;
+import javafx.event.EventType;
 import javafx.fxml.FXML;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
@@ -125,7 +127,7 @@ public class MainController {
 
     void startCameraClient(){
         try {
-            udpClient = new UDPClient("192.168.10.82", 4446, 7000);
+            udpClient = new UDPClient("192.168.0.102", 4446, 7000);
             udpClient.setOnRecived((bytes -> {
                 //System.out.println("recived "+bytes.length);
 
@@ -150,7 +152,7 @@ public class MainController {
 
     void startCompassClient(){
         try {
-            UDPClient compassClient = new UDPClient("192.168.10.82", 4447, 7000);
+            UDPClient compassClient = new UDPClient("192.168.0.102", 4447, 7000);
 
             compassClient.setOnRecived((b)->{
                 Platform.runLater(()->{
@@ -187,7 +189,7 @@ public class MainController {
 
                 if (gamePad == null){
                     System.out.println("Found no controllers.");
-                    System.exit(0);
+                    //System.exit(0);
                 }
                 while (true) {
                     //System.out.println(controllers[i].getName());
@@ -247,7 +249,7 @@ public class MainController {
     }
 
     void startThrusterClient() throws SocketException, UnknownHostException {
-        UDPClient thrusterClient = new UDPClient("192.168.10.82", 4448, 256);
+        UDPClient thrusterClient = new UDPClient("192.168.0.102", 4448, 256);
         thrusterClient.setOnRecived(d-> System.out.println("Thruster client get data: "+new String(d)));
         thrusterClient.start();
         /*x.addListener(observable -> thrusterClient.sendData((x.get() + "," + y.get()).getBytes()));
@@ -257,6 +259,39 @@ public class MainController {
             thrusterClient.sendData((pair.getKey() + "," + pair.getValue()).getBytes());
             System.out.println("send "+pair.getKey()+" "+pair.getValue());
         });
+
+/*
+                Platform.runLater(()-> {
+                    try {
+                        Thread.sleep(5000);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                    for (int i = 0; i < 10; i++) {
+                        final int l = i;
+                        //dataPair.set(new Pair<>(l / 10d, l / 10d));
+                        dataPair.set(new Pair<>(0d, 0d));
+                        try {
+                            Thread.sleep(2000);
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
+                    }
+
+
+                });*/
+
+            /*for (int i = 10; i > 0; i--) {
+                final int l = i;
+                Platform.runLater(()->{
+                    dataPair.set(new Pair<>(l/10d, l/10d));
+                });
+                try {
+                    Thread.sleep(100);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }*/
     }
 
     private void initCanvas() {
@@ -265,14 +300,28 @@ public class MainController {
         gameCanvas.setOnMouseDragged(e->{
             if (e.getY()>=0 && e.getX()>=0){
                 fillCanvas(e.getX(), e.getY());
-                double x = (w/2-e.getX())/(w/2);
-                double y = (h/2-e.getY())/(h/2);
-                System.out.println(df.format(x)+" "+df.format(y));
+                processMouseValues(e.getX(), e.getY());
             }
         });
 
+        gameCanvas.setOnMouseReleased(e->{
+            fillCanvas(w/2,h/2);
+            processMouseValues(w/2, h/2);
+        });
+
+        /*gameCanvas.addEventHandler(EventType.ROOT, e->{
+            System.out.println(e.getEventType());
+        });*/
+
 
         fillCanvas(w/2,h/2);
+    }
+
+    void processMouseValues(double x, double y){
+        x = -1*(w/2-x)/(w/2);
+        y = -1*(h/2-y)/(h/2);
+        System.out.println(df.format(x)+" "+df.format(y));
+        dataPair.set(new Pair<>(Double.parseDouble(df.format(x)), Double.parseDouble(df.format(y))));
     }
 
     private void fillCanvas(double x, double y){
