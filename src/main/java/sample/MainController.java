@@ -2,6 +2,8 @@ package sample;
 
 
 import com.oceanos.ros.core.connections.UDPClient;
+import com.oceanos.ros.messages.MessageProcessor;
+import com.oceanos.ros.messages.compass.CompassMessages;
 import javafx.application.Platform;
 
 import javafx.beans.property.ObjectProperty;
@@ -39,6 +41,9 @@ import java.util.Locale;
 
 
 public class MainController {
+
+    static final String host = "192.168.10.82";
+
     @FXML
     ImageView videoView;
 
@@ -52,6 +57,15 @@ public class MainController {
     Label gamePadY;
 
     @FXML
+    private TextField kpField;
+
+    @FXML
+    private TextField kiField;
+
+    @FXML
+    private TextField kdField;
+
+    @FXML
     private Label thrusterValue;
 
     @FXML
@@ -63,6 +77,10 @@ public class MainController {
     @FXML
     private Canvas gameCanvas;
 
+
+    @FXML
+    private TextField headingField;
+
     GraphicsContext gc;
 
     double w;
@@ -70,15 +88,45 @@ public class MainController {
 
     boolean paint = false;
 
+    private UDPClient thrusterClient;
+    private MessageProcessor messageProcessor;
+
+
+    @FXML
+    void goToHeading(ActionEvent event) {
+        thrusterClient.sendData(messageProcessor.formatMessage("goToHeading", headingField.getText()+
+                ","+kpField.getText()+","+kiField.getText()+","+kdField.getText()).getBytes());
+    }
+
     @FXML
     void sendData(ActionEvent event) {
         float x1 = Float.parseFloat(manualX1.getText());
         float y1 = Float.parseFloat(manualY1.getText());
-        Platform.runLater(()->{
+        Platform.runLater(() -> {
             /*x.setValue(Double.parseDouble(df.format(x1)));
             y.setValue(Double.parseDouble(df.format(y1)));*/
             dataPair.set(new Pair<>(Double.parseDouble(df.format(x1)), Double.parseDouble(df.format(y1))));
         });
+    }
+
+    @FXML
+    void startCompassCalibration(ActionEvent event) {
+        thrusterClient.sendData(messageProcessor.formatMessage(CompassMessages.START_CALIBRATION.getName(), "").getBytes());
+    }
+
+    @FXML
+    void startHeadingStream(ActionEvent event) {
+        thrusterClient.sendData(messageProcessor.formatMessage(CompassMessages.START_HEADING_STREAM.getName(), "").getBytes());
+    }
+
+    @FXML
+    void stopHeadingStream(ActionEvent event) {
+        thrusterClient.sendData(messageProcessor.formatMessage(CompassMessages.STOP_HEADING_STREAM.getName(), "").getBytes());
+    }
+
+    @FXML
+    void stopThruster() {
+        thrusterClient.sendData(messageProcessor.formatMessage("stop","").getBytes());
     }
 
     DecimalFormat df = new DecimalFormat("#.##", DecimalFormatSymbols.getInstance(Locale.US));
@@ -89,9 +137,10 @@ public class MainController {
     /*DoubleProperty x = new SimpleDoubleProperty();
     DoubleProperty y = new SimpleDoubleProperty();*/
 
-    ObjectProperty<Pair<Double, Double>> dataPair = new SimpleObjectProperty<>(new Pair<>(0d,0d));
+    ObjectProperty<Pair<Double, Double>> dataPair = new SimpleObjectProperty<>(new Pair<>(0d, 0d));
 
     public void initialize() throws SocketException, UnknownHostException {
+        messageProcessor = new MessageProcessor();
 
         w = gameCanvas.getWidth();
         h = gameCanvas.getHeight();
@@ -109,7 +158,7 @@ public class MainController {
 
         gamePadY.textProperty().bindBidirectional(y, new SimpleStringConverter());*/
 
-        dataPair.addListener(p->{
+        dataPair.addListener(p -> {
             gamePadX.setText(String.valueOf(dataPair.get().getKey()));
             gamePadY.setText(String.valueOf(dataPair.get().getValue()));
         });
@@ -124,10 +173,9 @@ public class MainController {
     }
 
 
-
-    void startCameraClient(){
+    void startCameraClient() {
         try {
-            udpClient = new UDPClient("192.168.0.102", 4446, 7000);
+            udpClient = new UDPClient(host, 4446, 7000);
             udpClient.setOnRecived((bytes -> {
                 //System.out.println("recived "+bytes.length);
 
@@ -140,7 +188,7 @@ public class MainController {
                 }
 
                 BufferedImage finalImag = imag;
-                Platform.runLater(()->{
+                Platform.runLater(() -> {
                     imageObjectProperty.set(SwingFXUtils.toFXImage(finalImag, null));
                 });
             }));
@@ -150,12 +198,13 @@ public class MainController {
         }
     }
 
-    void startCompassClient(){
+    void startCompassClient() {
         try {
-            UDPClient compassClient = new UDPClient("192.168.0.102", 4447, 7000);
+            UDPClient compassClient = new UDPClient(host, 4447, 7000);
 
-            compassClient.setOnRecived((b)->{
-                Platform.runLater(()->{
+            compassClient.setOnRecived((b) -> {
+                //System.out.println("from compass");
+                Platform.runLater(() -> {
                     heading.setText(new String(b));
                 });
             });
@@ -168,7 +217,7 @@ public class MainController {
         }
     }
 
-    void startGamePad(){
+    void startGamePad() {
         new Thread(new Runnable() {
             public void run() {
                 Controller[] controllers = ControllerEnvironment
@@ -187,7 +236,7 @@ public class MainController {
                     }
                 }
 
-                if (gamePad == null){
+                if (gamePad == null) {
                     System.out.println("Found no controllers.");
                     //System.exit(0);
                 }
@@ -204,14 +253,14 @@ public class MainController {
                     /* For each object in the queue */
                     while (queue.getNextEvent(event)) {
 
-                        System.out.println("event");
+                        //System.out.println("event");
 
                         Component comp = event.getComponent();
                         //System.out.println(comp.getIdentifier().Axis.X);
-                        if (comp.getIdentifier() == Component.Identifier.Axis.X){
-                            System.out.println("set X");
+                        if (comp.getIdentifier() == Component.Identifier.Axis.X) {
+                            //System.out.println("set X");
 
-                            Platform.runLater(()->{
+                            Platform.runLater(() -> {
                                 //x.setValue(Double.parseDouble(df.format(event.getValue())));
                                 if (Double.parseDouble(df.format(event.getValue())) == dataPair.get().getKey()) return;
                                 dataPair.set(new Pair<>(Double.parseDouble(df.format(event.getValue())), Double.parseDouble(gamePadY.getText())));
@@ -222,12 +271,14 @@ public class MainController {
                                 //y.setValue(event.getValue());
                                 System.out.println(event.getValue());
                             });
-                        } */if (comp.getIdentifier() == Component.Identifier.Axis.Z){
-                            System.out.println("set Y");
-                            Platform.runLater(()->{
+                        } */
+                        if (comp.getIdentifier() == Component.Identifier.Axis.Z) {
+                            //System.out.println("set Y");
+                            Platform.runLater(() -> {
 
                                 //y.setValue(Double.parseDouble(df.format(event.getValue()*-1)));
-                                if (Double.parseDouble(df.format(event.getValue())) == dataPair.get().getValue()) return;
+                                if (Double.parseDouble(df.format(event.getValue())) == dataPair.get().getValue())
+                                    return;
                                 dataPair.set(new Pair<>(Double.parseDouble(gamePadX.getText()), Double.parseDouble(df.format(event.getValue()))));
                                 //System.out.println(event.getValue());
 
@@ -249,95 +300,57 @@ public class MainController {
     }
 
     void startThrusterClient() throws SocketException, UnknownHostException {
-        UDPClient thrusterClient = new UDPClient("192.168.0.102", 4448, 256);
-        thrusterClient.setOnRecived(d-> System.out.println("Thruster client get data: "+new String(d)));
+        thrusterClient = new UDPClient(host, 4448, 256);
+        thrusterClient.setOnRecived(d -> System.out.println("Thruster client get data: " + new String(d)));
         thrusterClient.start();
         /*x.addListener(observable -> thrusterClient.sendData((x.get() + "," + y.get()).getBytes()));
         y.addListener(observable -> thrusterClient.sendData((x.get() + "," + y.get()).getBytes()));*/
         dataPair.addListener(observable -> {
             Pair<Double, Double> pair = dataPair.get();
-            thrusterClient.sendData((pair.getKey() + "," + pair.getValue()).getBytes());
-            System.out.println("send "+pair.getKey()+" "+pair.getValue());
+            thrusterClient.sendData(messageProcessor.formatMessage("thruster", (pair.getKey() + "," + pair.getValue())).getBytes());
+            System.out.println("send " + pair.getKey() + " " + pair.getValue());
         });
-
-/*
-                Platform.runLater(()-> {
-                    try {
-                        Thread.sleep(5000);
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    }
-                    for (int i = 0; i < 10; i++) {
-                        final int l = i;
-                        //dataPair.set(new Pair<>(l / 10d, l / 10d));
-                        dataPair.set(new Pair<>(0d, 0d));
-                        try {
-                            Thread.sleep(2000);
-                        } catch (InterruptedException e) {
-                            e.printStackTrace();
-                        }
-                    }
-
-
-                });*/
-
-            /*for (int i = 10; i > 0; i--) {
-                final int l = i;
-                Platform.runLater(()->{
-                    dataPair.set(new Pair<>(l/10d, l/10d));
-                });
-                try {
-                    Thread.sleep(100);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-            }*/
     }
 
     private void initCanvas() {
         gc = gameCanvas.getGraphicsContext2D();
 
-        gameCanvas.setOnMouseDragged(e->{
-            if (e.getY()>=0 && e.getX()>=0){
+        gameCanvas.setOnMouseDragged(e -> {
+            if (e.getY() >= 0 && e.getX() >= 0) {
                 fillCanvas(e.getX(), e.getY());
                 processMouseValues(e.getX(), e.getY());
             }
         });
 
-        gameCanvas.setOnMouseReleased(e->{
-            fillCanvas(w/2,h/2);
-            processMouseValues(w/2, h/2);
+        gameCanvas.setOnMouseReleased(e -> {
+            fillCanvas(w / 2, h / 2);
+            processMouseValues(w / 2, h / 2);
         });
 
-        /*gameCanvas.addEventHandler(EventType.ROOT, e->{
-            System.out.println(e.getEventType());
-        });*/
-
-
-        fillCanvas(w/2,h/2);
+        fillCanvas(w / 2, h / 2);
     }
 
-    void processMouseValues(double x, double y){
-        x = -1*(w/2-x)/(w/2);
-        y = -1*(h/2-y)/(h/2);
-        System.out.println(df.format(x)+" "+df.format(y));
+    void processMouseValues(double x, double y) {
+        x = -1 * (w / 2 - x) / (w / 2);
+        y = -1 * (h / 2 - y) / (h / 2);
+        System.out.println(df.format(x) + " " + df.format(y));
         dataPair.set(new Pair<>(Double.parseDouble(df.format(x)), Double.parseDouble(df.format(y))));
     }
 
-    private void fillCanvas(double x, double y){
+    private void fillCanvas(double x, double y) {
         gc.setFill(Color.WHITE);
         gc.setStroke(Color.RED);
-        gc.fillRect(0,0,w,h);
-        gc.strokeRect(0,0, w, h);
+        gc.fillRect(0, 0, w, h);
+        gc.strokeRect(0, 0, w, h);
         gc.setFill(Color.GREEN);
-        gc.fillOval(w/2-5,h/2-5, 10,10);
+        gc.fillOval(w / 2 - 5, h / 2 - 5, 10, 10);
         gc.setFill(Color.YELLOW);
-        gc.fillOval(x-10,y-10, 20,20);
+        gc.fillOval(x - 10, y - 10, 20, 20);
         gc.setStroke(Color.BLUE);
-        gc.strokeLine(w/2,h/2, x,y);
+        gc.strokeLine(w / 2, h / 2, x, y);
     }
 
-    static class SimpleStringConverter extends StringConverter<Number>{
+    static class SimpleStringConverter extends StringConverter<Number> {
 
         @Override
         public String toString(Number object) {

@@ -105,5 +105,37 @@
          </children>
       </AnchorPane>
       <Canvas fx:id="gameCanvas" height="350.0" layoutX="602.0" layoutY="400.0" width="350.0" />
+      <Button layoutX="14.0" layoutY="642.0" mnemonicParsing="false" onAction="#startCompassCalibration" text="Start Calibration" />
+      <Button layoutX="124.0" layoutY="642.0" mnemonicParsing="false" onAction="#startHeadingStream" text="Start Heading Stream" />
+      <Button layoutX="263.0" layoutY="642.0" mnemonicParsing="false" onAction="#stopHeadingStream" text="Stop Heading Stream" />
+      <Button layoutX="876.0" layoutY="14.0" mnemonicParsing="false" onAction="#stopThruster" prefHeight="49.0" prefWidth="102.0" text="Stop">
+         <font>
+            <Font size="18.0" />
+         </font>
+      </Button>
+      <TextField fx:id="headingField" layoutX="14.0" layoutY="678.0" prefHeight="25.0" prefWidth="102.0" />
+      <Button layoutX="124.0" layoutY="678.0" mnemonicParsing="false" onAction="#goToHeading" text="go to heading" />
+      <HBox layoutX="228.0" layoutY="678.0" prefHeight="25.0" prefWidth="200.0" spacing="5.0">
+         <children>
+            <Label text="Kp">
+               <font>
+                  <Font size="16.0" />
+               </font>
+            </Label>
+            <TextField fx:id="kpField" prefHeight="25.0" prefWidth="35.0" />
+            <Label text="Ki">
+               <font>
+                  <Font size="16.0" />
+               </font>
+            </Label>
+            <TextField fx:id="kiField" prefHeight="25.0" prefWidth="35.0" />
+            <Label text="Kd">
+               <font>
+                  <Font size="16.0" />
+               </font>
+            </Label>
+            <TextField fx:id="kdField" prefHeight="25.0" prefWidth="35.0" />
+         </children>
+      </HBox>
    </children>
 </AnchorPane>
