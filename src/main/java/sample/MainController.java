@@ -10,6 +10,7 @@ import javafx.beans.property.ObjectProperty;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.embed.swing.SwingFXUtils;
 import javafx.event.ActionEvent;
+import javafx.event.EventHandler;
 import javafx.event.EventType;
 import javafx.fxml.FXML;
 import javafx.scene.canvas.Canvas;
@@ -18,7 +19,10 @@ import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
+import javafx.scene.layout.AnchorPane;
 import javafx.scene.paint.Color;
+import javafx.stage.Window;
+import javafx.stage.WindowEvent;
 import javafx.util.Pair;
 import javafx.util.StringConverter;
 import net.java.games.input.*;
@@ -43,6 +47,9 @@ import java.util.Locale;
 public class MainController {
 
     static final String host = "192.168.10.82";
+
+    @FXML
+    AnchorPane mainWindow;
 
     @FXML
     ImageView videoView;
@@ -81,6 +88,15 @@ public class MainController {
     @FXML
     private TextField headingField;
 
+    @FXML
+    private TextField speed;
+
+    @FXML
+    private void followHeading() {
+        thrusterClient.sendData(messageProcessor.formatMessage("followHeading", headingField.getText() +
+                "," + kpField.getText() + "," + kiField.getText() + "," + kdField.getText()+","+speed.getText()).getBytes());
+    }
+
     GraphicsContext gc;
 
     double w;
@@ -89,13 +105,15 @@ public class MainController {
     boolean paint = false;
 
     private UDPClient thrusterClient;
+    private UDPClient compassClient;
     private MessageProcessor messageProcessor;
+    private boolean running = true;
 
 
     @FXML
     void goToHeading(ActionEvent event) {
-        thrusterClient.sendData(messageProcessor.formatMessage("goToHeading", headingField.getText()+
-                ","+kpField.getText()+","+kiField.getText()+","+kdField.getText()).getBytes());
+        thrusterClient.sendData(messageProcessor.formatMessage("goToHeading", headingField.getText() +
+                "," + kpField.getText() + "," + kiField.getText() + "," + kdField.getText()).getBytes());
     }
 
     @FXML
@@ -126,7 +144,7 @@ public class MainController {
 
     @FXML
     void stopThruster() {
-        thrusterClient.sendData(messageProcessor.formatMessage("stop","").getBytes());
+        thrusterClient.sendData(messageProcessor.formatMessage("stop", "").getBytes());
     }
 
     DecimalFormat df = new DecimalFormat("#.##", DecimalFormatSymbols.getInstance(Locale.US));
@@ -170,6 +188,10 @@ public class MainController {
 
         startGamePad();
         startThrusterClient();
+
+        /*mainWindow.getScene().getWindow().setOnCloseRequest(e->{
+
+        });*/
     }
 
 
@@ -200,12 +222,19 @@ public class MainController {
 
     void startCompassClient() {
         try {
-            UDPClient compassClient = new UDPClient(host, 4447, 7000);
+            compassClient = new UDPClient(host, 4447, 7000);
 
             compassClient.setOnRecived((b) -> {
                 //System.out.println("from compass");
                 Platform.runLater(() -> {
-                    heading.setText(new String(b));
+                    String msg = new String(b);
+                    String[] values = msg.split(",");
+                    if (values[0].equals("thruster")){
+                        thrusterValue.setText(values[1]+", "+values[2]);
+                    } else if (values[0].equals("compass")){
+                        heading.setText(values[1]);
+                    }
+
                 });
             });
 
@@ -240,7 +269,7 @@ public class MainController {
                     System.out.println("Found no controllers.");
                     //System.exit(0);
                 }
-                while (true) {
+                while (running) {
                     //System.out.println(controllers[i].getName());
                     /* Remember to poll each one */
                     gamePad.poll();
@@ -288,12 +317,12 @@ public class MainController {
 
                     }
 
-                    /*try {
+                    try {
                         Thread.sleep(20);
                     } catch (InterruptedException e) {
                         // TODO Auto-generated catch block
                         e.printStackTrace();
-                    }*/
+                    }
                 }
             }
         }).start();
@@ -348,6 +377,13 @@ public class MainController {
         gc.fillOval(x - 10, y - 10, 20, 20);
         gc.setStroke(Color.BLUE);
         gc.strokeLine(w / 2, h / 2, x, y);
+    }
+
+    public void exit() {
+        udpClient.stop();
+        compassClient.stop();
+        thrusterClient.stop();
+        running = false;
     }
 
     static class SimpleStringConverter extends StringConverter<Number> {
