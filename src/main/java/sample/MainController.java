@@ -89,6 +89,9 @@ public class MainController {
     private TextField headingField;
 
     @FXML
+    private Label wSpeed;
+
+    @FXML
     private TextField speed;
 
     @FXML
@@ -183,7 +186,7 @@ public class MainController {
 
         initCanvas();
 
-        startCameraClient();
+        //startCameraClient();
         startCompassClient();
 
         startGamePad();
@@ -233,6 +236,7 @@ public class MainController {
                         thrusterValue.setText(values[1]+", "+values[2]);
                     } else if (values[0].equals("compass")){
                         heading.setText(values[1]);
+                        wSpeed.setText(values[2]);
                     }
 
                 });
@@ -336,8 +340,10 @@ public class MainController {
         y.addListener(observable -> thrusterClient.sendData((x.get() + "," + y.get()).getBytes()));*/
         dataPair.addListener(observable -> {
             Pair<Double, Double> pair = dataPair.get();
-            thrusterClient.sendData(messageProcessor.formatMessage("thruster", (pair.getKey() + "," + pair.getValue())).getBytes());
-            System.out.println("send " + pair.getKey() + " " + pair.getValue());
+            String msg = pair.getKey() + "," + pair.getValue();
+            System.out.println("thruster "+msg);
+            thrusterClient.sendData(messageProcessor.formatMessage("thruster", msg).getBytes());
+            //System.out.println("send " + pair.getKey() + " " + pair.getValue());
         });
     }
 
@@ -380,7 +386,7 @@ public class MainController {
     }
 
     public void exit() {
-        udpClient.stop();
+        //udpClient.stop();
         compassClient.stop();
         thrusterClient.stop();
         running = false;
