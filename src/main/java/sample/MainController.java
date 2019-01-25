@@ -6,8 +6,12 @@ import com.oceanos.ros.messages.MessageProcessor;
 import com.oceanos.ros.messages.compass.CompassMessages;
 import javafx.application.Platform;
 
+import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.ObjectProperty;
+import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleObjectProperty;
+import javafx.beans.value.ChangeListener;
+import javafx.beans.value.ObservableValue;
 import javafx.embed.swing.SwingFXUtils;
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
@@ -17,8 +21,10 @@ import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
+import javafx.scene.control.ToggleButton;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
+import javafx.scene.input.KeyCode;
 import javafx.scene.layout.AnchorPane;
 import javafx.scene.paint.Color;
 import javafx.stage.Window;
@@ -46,7 +52,7 @@ import java.util.Locale;
 
 public class MainController {
 
-    static final String host = "192.168.10.82";
+    static final String host = "192.168.11.82";
 
     @FXML
     AnchorPane mainWindow;
@@ -62,6 +68,9 @@ public class MainController {
 
     @FXML
     Label gamePadY;
+
+    @FXML
+    ToggleButton keyboard;
 
     @FXML
     private TextField kpField;
@@ -106,7 +115,7 @@ public class MainController {
     double h;
 
     boolean paint = false;
-
+    BooleanProperty isKeyboardControll = new SimpleBooleanProperty(false);
     private UDPClient thrusterClient;
     private UDPClient compassClient;
     private MessageProcessor messageProcessor;
@@ -180,13 +189,15 @@ public class MainController {
         gamePadY.textProperty().bindBidirectional(y, new SimpleStringConverter());*/
 
         dataPair.addListener(p -> {
-            gamePadX.setText(String.valueOf(dataPair.get().getKey()));
-            gamePadY.setText(String.valueOf(dataPair.get().getValue()));
+            Platform.runLater(()->{
+                gamePadX.setText(String.valueOf(dataPair.get().getKey()));
+                gamePadY.setText(String.valueOf(dataPair.get().getValue()));
+            });
         });
 
         initCanvas();
 
-        //startCameraClient();
+        startCameraClient();
         startCompassClient();
 
         startGamePad();
@@ -195,12 +206,16 @@ public class MainController {
         /*mainWindow.getScene().getWindow().setOnCloseRequest(e->{
 
         });*/
+
+        isKeyboardControll.bind(keyboard.selectedProperty());
+
+        activateKeyboard();
     }
 
 
     void startCameraClient() {
         try {
-            udpClient = new UDPClient(host, 4446, 7000);
+            udpClient = new UDPClient(host, 4446, 90000);
             udpClient.setOnRecived((bytes -> {
                 //System.out.println("recived "+bytes.length);
 
@@ -264,6 +279,10 @@ public class MainController {
                 Controller gamePad = null;
 
                 for (int i = 0; i < controllers.length; i++) {
+                    for (int j = 0; j < controllers.length; j++) {
+                        System.out.println(controllers[j].getName());
+                    }
+                    // Controller  (Wireless Gamepad F710)
                     if (controllers[i].getName().equals("Controller (Gamepad F310)")) {
                         gamePad = controllers[i];
                     }
@@ -293,12 +312,15 @@ public class MainController {
                         if (comp.getIdentifier() == Component.Identifier.Axis.X) {
                             //System.out.println("set X");
 
-                            Platform.runLater(() -> {
+                            //System.out.println(val);
+                            //if (val == dataPair.get().getKey()) return;
+                            //Platform.runLater(() -> {
+                                double val = Math.round(event.getValue() * 100.0) / 100.0;
                                 //x.setValue(Double.parseDouble(df.format(event.getValue())));
-                                if (Double.parseDouble(df.format(event.getValue())) == dataPair.get().getKey()) return;
-                                dataPair.set(new Pair<>(Double.parseDouble(df.format(event.getValue())), Double.parseDouble(gamePadY.getText())));
+                                //if (Double.parseDouble(df.format(event.getValue())) == dataPair.get().getKey()) return;
+                                dataPair.set(new Pair<>(val, Double.parseDouble(gamePadY.getText())));
                                 //System.out.println(event.getValue());
-                            });
+                            //});
                         }  /*if (comp.getIdentifier().getName().equals("ry")){
                             Platform.runLater(()->{
                                 //y.setValue(event.getValue());
@@ -307,15 +329,19 @@ public class MainController {
                         } */
                         if (comp.getIdentifier() == Component.Identifier.Axis.Z) {
                             //System.out.println("set Y");
-                            Platform.runLater(() -> {
 
+                            //if (val == dataPair.get().getValue()) return;
+                            //System.out.println(val);
+                            //Platform.runLater(() -> {
+                                double val = Math.round(event.getValue() * 100.0) / 100.0;
                                 //y.setValue(Double.parseDouble(df.format(event.getValue()*-1)));
-                                if (Double.parseDouble(df.format(event.getValue())) == dataPair.get().getValue())
-                                    return;
-                                dataPair.set(new Pair<>(Double.parseDouble(gamePadX.getText()), Double.parseDouble(df.format(event.getValue()))));
+                                /*if (Double.parseDouble(df.format(event.getValue())) == dataPair.get().getValue())
+                                    return;*/
+
+                                dataPair.set(new Pair<>(Double.parseDouble(gamePadX.getText()), val));
                                 //System.out.println(event.getValue());
 
-                            });
+                            //});
                             //System.out.println(event.getValue());
                         }
 
@@ -385,8 +411,31 @@ public class MainController {
         gc.strokeLine(w / 2, h / 2, x, y);
     }
 
+    private void activateKeyboard(){
+        mainWindow.setFocusTraversable(true);
+            mainWindow.setOnKeyPressed((e)->{
+                if (isKeyboardControll.get()){
+                    switch (e.getCode()) {
+                        case W:
+                            dataPair.setValue(new Pair<>(0.0, -0.7));
+                            System.out.println("forward");
+                        break;
+                        case S: dataPair.setValue(new Pair<>(0.0, 0.7));
+                        break;
+                        case A: dataPair.setValue(new Pair<>(-1.0, -0.7));
+                        break;
+                        case D: dataPair.setValue(new Pair<>(1.0, -0.7));
+                    }
+                    e.consume();
+                }
+
+            });
+
+
+    }
+
     public void exit() {
-        //udpClient.stop();
+        udpClient.stop();
         compassClient.stop();
         thrusterClient.stop();
         running = false;

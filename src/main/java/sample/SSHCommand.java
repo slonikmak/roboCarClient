@@ -20,7 +20,7 @@ public class SSHCommand {
 
     /*hostname = "192.168.10.82";
     port = 22;*/
-    String hostname = "192.168.10.82";
+    String hostname = "192.168.11.82";
     int port = 22;
 
     int channelNum;
