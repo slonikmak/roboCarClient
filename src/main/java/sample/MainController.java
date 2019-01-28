@@ -2,6 +2,7 @@ package sample;
 
 
 import com.oceanos.ros.core.connections.UDPClient;
+import com.oceanos.ros.messages.MessageClient;
 import com.oceanos.ros.messages.MessageProcessor;
 import com.oceanos.ros.messages.compass.CompassMessages;
 import javafx.application.Platform;
@@ -10,12 +11,8 @@ import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.ObjectProperty;
 import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleObjectProperty;
-import javafx.beans.value.ChangeListener;
-import javafx.beans.value.ObservableValue;
 import javafx.embed.swing.SwingFXUtils;
 import javafx.event.ActionEvent;
-import javafx.event.EventHandler;
-import javafx.event.EventType;
 import javafx.fxml.FXML;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
@@ -24,11 +21,8 @@ import javafx.scene.control.TextField;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
-import javafx.scene.input.KeyCode;
 import javafx.scene.layout.AnchorPane;
 import javafx.scene.paint.Color;
-import javafx.stage.Window;
-import javafx.stage.WindowEvent;
 import javafx.util.Pair;
 import javafx.util.StringConverter;
 import net.java.games.input.*;
@@ -36,7 +30,6 @@ import net.java.games.input.Component;
 import net.java.games.input.Event;
 import net.java.games.input.EventQueue;
 
-import javax.accessibility.AccessibleContext;
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
@@ -105,8 +98,13 @@ public class MainController {
 
     @FXML
     private void followHeading() {
-        thrusterClient.sendData(messageProcessor.formatMessage("followHeading", headingField.getText() +
-                "," + kpField.getText() + "," + kiField.getText() + "," + kdField.getText()+","+speed.getText()).getBytes());
+        /*thrusterClient.sendData(messageProcessor.formatMessage("followHeading", headingField.getText() +
+                "," + kpField.getText() + "," + kiField.getText() + "," + kdField.getText()+","+speed.getText()).getBytes());*/
+        try {
+            messageClient.sendMessage("followHeading", headingField.getText(),kpField.getText(), kiField.getText(), kdField.getText(),speed.getText());
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     GraphicsContext gc;
@@ -119,13 +117,20 @@ public class MainController {
     private UDPClient thrusterClient;
     private UDPClient compassClient;
     private MessageProcessor messageProcessor;
+    private MessageClient messageClient;
     private boolean running = true;
 
 
     @FXML
     void goToHeading(ActionEvent event) {
-        thrusterClient.sendData(messageProcessor.formatMessage("goToHeading", headingField.getText() +
-                "," + kpField.getText() + "," + kiField.getText() + "," + kdField.getText()).getBytes());
+      /*  thrusterClient.sendData(messageProcessor.formatMessage("goToHeading", headingField.getText() +
+                "," + kpField.getText() + "," + kiField.getText() + "," + kdField.getText()).getBytes());*/
+        try {
+            messageClient.sendMessage("goToHeading", headingField.getText() +
+                    kpField.getText() + kiField.getText() + kdField.getText());
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     @FXML
@@ -141,22 +146,42 @@ public class MainController {
 
     @FXML
     void startCompassCalibration(ActionEvent event) {
-        thrusterClient.sendData(messageProcessor.formatMessage(CompassMessages.START_CALIBRATION.getName(), "").getBytes());
+        //thrusterClient.sendData(messageProcessor.formatMessage(CompassMessages.START_CALIBRATION.getName(), "").getBytes());
+        try {
+            messageClient.sendMessage(CompassMessages.START_CALIBRATION.getName());
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     @FXML
     void startHeadingStream(ActionEvent event) {
-        thrusterClient.sendData(messageProcessor.formatMessage(CompassMessages.START_HEADING_STREAM.getName(), "").getBytes());
+        //thrusterClient.sendData(messageProcessor.formatMessage(CompassMessages.START_HEADING_STREAM.getName(), "").getBytes());
+        try {
+            messageClient.sendMessage(CompassMessages.START_HEADING_STREAM.getName());
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     @FXML
     void stopHeadingStream(ActionEvent event) {
-        thrusterClient.sendData(messageProcessor.formatMessage(CompassMessages.STOP_HEADING_STREAM.getName(), "").getBytes());
+        //thrusterClient.sendData(messageProcessor.formatMessage(CompassMessages.STOP_HEADING_STREAM.getName(), "").getBytes());
+        try {
+            messageClient.sendMessage(CompassMessages.STOP_HEADING_STREAM.getName());
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     @FXML
     void stopThruster() {
-        thrusterClient.sendData(messageProcessor.formatMessage("stop", "").getBytes());
+        //thrusterClient.sendData(messageProcessor.formatMessage("stop", "").getBytes());
+        try {
+            messageClient.sendMessage("stop");
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     DecimalFormat df = new DecimalFormat("#.##", DecimalFormatSymbols.getInstance(Locale.US));
@@ -170,7 +195,8 @@ public class MainController {
     ObjectProperty<Pair<Double, Double>> dataPair = new SimpleObjectProperty<>(new Pair<>(0d, 0d));
 
     public void initialize() throws SocketException, UnknownHostException {
-        messageProcessor = new MessageProcessor();
+        //messageProcessor = new MessageProcessor();
+        messageClient = new MessageClient(host, 4447);
 
         w = gameCanvas.getWidth();
         h = gameCanvas.getHeight();
@@ -239,7 +265,7 @@ public class MainController {
     }
 
     void startCompassClient() {
-        try {
+       /* try {
             compassClient = new UDPClient(host, 4447, 7000);
 
             compassClient.setOnRecived((b) -> {
@@ -262,7 +288,15 @@ public class MainController {
             e.printStackTrace();
         } catch (SocketException e) {
             e.printStackTrace();
-        }
+        }*/
+       messageClient.subscribe("compass", s->{
+           //System.out.println(s);
+           Platform.runLater(() -> {
+               String[] values = s.split(",");
+                   heading.setText(values[0]);
+                   wSpeed.setText(values[1]);
+           });
+       });
     }
 
     void startGamePad() {
@@ -279,9 +313,9 @@ public class MainController {
                 Controller gamePad = null;
 
                 for (int i = 0; i < controllers.length; i++) {
-                    for (int j = 0; j < controllers.length; j++) {
+                    /*for (int j = 0; j < controllers.length; j++) {
                         System.out.println(controllers[j].getName());
-                    }
+                    }*/
                     // Controller  (Wireless Gamepad F710)
                     if (controllers[i].getName().equals("Controller (Gamepad F310)")) {
                         gamePad = controllers[i];
@@ -344,32 +378,42 @@ public class MainController {
                             //});
                             //System.out.println(event.getValue());
                         }
+                        try {
+                            Thread.sleep(10);
+                        } catch (InterruptedException e) {
+                            // TODO Auto-generated catch block
+                            e.printStackTrace();
+                        }
 
                     }
 
-                    try {
-                        Thread.sleep(20);
-                    } catch (InterruptedException e) {
-                        // TODO Auto-generated catch block
-                        e.printStackTrace();
-                    }
+
                 }
             }
         }).start();
     }
 
-    void startThrusterClient() throws SocketException, UnknownHostException {
-        thrusterClient = new UDPClient(host, 4448, 256);
+    void startThrusterClient(){
+        /*thrusterClient = new UDPClient(host, 4448, 256);
         thrusterClient.setOnRecived(d -> System.out.println("Thruster client get data: " + new String(d)));
-        thrusterClient.start();
+        thrusterClient.start();*/
         /*x.addListener(observable -> thrusterClient.sendData((x.get() + "," + y.get()).getBytes()));
         y.addListener(observable -> thrusterClient.sendData((x.get() + "," + y.get()).getBytes()));*/
         dataPair.addListener(observable -> {
             Pair<Double, Double> pair = dataPair.get();
             String msg = pair.getKey() + "," + pair.getValue();
             System.out.println("thruster "+msg);
-            thrusterClient.sendData(messageProcessor.formatMessage("thruster", msg).getBytes());
+            //thrusterClient.sendData(messageProcessor.formatMessage("thruster", msg).getBytes());
+            try {
+                messageClient.sendMessage("thruster", String.valueOf(pair.getKey()), String.valueOf(pair.getValue()));
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
             //System.out.println("send " + pair.getKey() + " " + pair.getValue());
+        });
+        messageClient.subscribe("thruster_callback", s->{
+            String[] values = s.split(",");
+            Platform.runLater(()->thrusterValue.setText(values[0]+", "+values[1]));
         });
     }
 
@@ -436,8 +480,13 @@ public class MainController {
 
     public void exit() {
         udpClient.stop();
-        compassClient.stop();
-        thrusterClient.stop();
+        //compassClient.stop();
+        //thrusterClient.stop();
+        try {
+            messageClient.stop();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
         running = false;
     }
 
